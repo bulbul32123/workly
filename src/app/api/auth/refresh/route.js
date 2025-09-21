@@ -6,8 +6,8 @@ import User from '@/models/User';
 import { signAccessToken } from '@/lib/jwt';
 import bcrypt from 'bcryptjs';
 
-const ACCESS_EXPIRE_SECONDS = 15 * 60; // 15 mins
-const REFRESH_EXPIRE_SECONDS = 7 * 24 * 60 * 60; // 7 days
+const ACCESS_EXPIRE_SECONDS = 15 * 60;
+const REFRESH_EXPIRE_SECONDS = 7 * 24 * 60 * 60; 
 
 export async function POST(request) {
   try {
@@ -17,11 +17,7 @@ export async function POST(request) {
     if (!refreshPlain) {
       return NextResponse.json({ error: 'No refresh token' }, { status: 401 });
     }
-
-    // Find the refresh token record (not hashed)
-    // We'll fetch all tokens for user and compare hash - or find many and compare:
     const tokens = await RefreshToken.find({ revoked: false, expiresAt: { $gt: new Date() } });
-    // Compare each token's hash (could optimize by storing token id in JWT)
     let found = null;
     for (const t of tokens) {
       const match = await bcrypt.compare(refreshPlain, t.tokenHash);
@@ -32,7 +28,6 @@ export async function POST(request) {
     }
 
     if (!found) {
-      // token not found => unauthorized
       return NextResponse.json({ error: 'Invalid refresh token' }, { status: 401 });
     }
 
@@ -41,11 +36,9 @@ export async function POST(request) {
       return NextResponse.json({ error: 'User not found' }, { status: 401 });
     }
 
-    // rotate refresh token: revoke old and issue new
     found.revoked = true;
     await found.save();
 
-    // create new refresh token
     const crypto = await import('crypto');
     const newPlain = crypto.randomBytes(64).toString('hex');
     const newHash = await bcrypt.hash(newPlain, 12);
